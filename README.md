@@ -82,6 +82,17 @@ python3 scripts/research-loop.py "研究主题"
 ./scripts/run-research.sh "研究主题"
 ```
 
+## ⚠️ 重要提醒
+
+> **🚨 警告：此 Skill 会持续迭代研究，非常消耗 Token！**
+> 
+> 每轮研究都会调用搜索、分析、验证，多轮迭代累积下来 Token 消耗巨大。
+> 
+> 建议：
+> - 设置合理的 `RESEARCH_MAX_ITER`（推荐 3-5 轮）
+> - 研究前评估是否真的需要深度研究
+> - 关注 Token 用量，避免超额
+
 ## 与 AutoResearch 对比
 
 | 特性 | Karpathy's AutoResearch | Deep Research Skill |
