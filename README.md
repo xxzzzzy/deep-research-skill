@@ -1,117 +1,123 @@
-# 🔬 Deep Research Skill
+# Deep Research Skill
 
-> **自动迭代研究工具** - 让 AI Agent 像科学家一样持续搜索、分析、验证，直到获得最优结果。
+A small, open-source research loop for AI agents. It uses the OpenAI Responses API with web search to gather evidence across multiple bounded rounds, identify gaps, and produce a cited Markdown report.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-blue.svg)](https://github.com/openclaw)
+[中文说明](README.zh-CN.md) | [Roadmap](ROADMAP.md) | [Contributing](CONTRIBUTING.md)
 
-## 灵感来源
+## Why this project exists
 
-本项目灵感来源于 [Karpathy's AutoResearch](https://github.com/karpathy/autoresearch) - 一个让 AI Agent 自动进行 ML 模型研究的实验项目。
+One-shot research prompts often stop too early, repeat weak sources, or hide uncertainty. This project explores a reproducible loop:
 
-> *"One day, frontier AI research used to be done by meat computers in between eating, sleeping..."* - @karpathy
+1. Search broadly and prioritize primary or authoritative sources.
+2. Feed prior notes into the next round.
+3. Ask specifically for gaps, disagreements, and missing evidence.
+4. Stop at a configured round limit.
+5. Synthesize the collected notes into a structured report.
 
-AutoResearch 的核心理念是：**让 AI 自动迭代实验，修改代码 → 训练 → 评估 → 继续改进**。
+The current version is an early-stage Node.js reference implementation. It is intentionally small and explicit so that its prompts, limits, and evaluation methods can be inspected and improved.
 
-Deep Research Skill 将这个理念迁移到了**通用信息研究**场景：
-- 不再是优化模型，而是**优化知识**
-- 不再是训练循环，而是**搜索循环**
-- 不再是评估 loss，而是**评估信息质量**
+## Current capabilities
 
-## 核心特性
+- OpenAI Responses API integration
+- Built-in web search for research rounds
+- Configurable model, round limit, output-token limit, and report directory
+- Cumulative token-usage reporting
+- Markdown report generation
+- Dependency-injected research core for offline automated tests
 
-| 特性 | 说明 |
-|------|------|
-| 🔄 自动迭代 | 多轮搜索直到信息饱和 |
-| 📊 质量评估 | 自动评估信息质量（数据、来源、对比、细节） |
-| ⏹️ 智能收敛 | 无新发现时自动停止 |
-| 📝 结构化报告 | 自动生成 Markdown 报告 |
-| 🎯 目标导向 | 聚焦用户核心问题 |
+## Important limitations
 
-## 安装
+- The project is experimental and does not guarantee factual accuracy.
+- Source links and claims still require human review.
+- The current stopping rule is a fixed round limit, not semantic convergence detection.
+- Token limits are applied per API request; a total monetary budget is not yet enforced.
+- The test suite validates orchestration and safeguards, not the factual quality of live model output.
 
-### 方式 1：手动安装
+These limitations are tracked in the public [roadmap](ROADMAP.md).
+
+## Requirements
+
+- Node.js 20 or newer
+- An OpenAI API key with access to the Responses API
+
+## Installation
 
 ```bash
-# 克隆仓库
 git clone https://github.com/xxzzzzy/deep-research-skill.git
-
-# 复制到 OpenClaw skills 目录
-cp -r deep-research-skill /path/to/openclaw/skills/deep-research
-
-# 确保脚本可执行
-chmod +x /path/to/openclaw/skills/deep-research/scripts/*.sh
+cd deep-research-skill
+npm install
 ```
 
-### 方式 2：直接下载
+Set your API key in the shell. Never commit it to the repository.
+
+macOS or Linux:
 
 ```bash
-# 下载最新版本
-curl -L https://github.com/xxzzzzy/deep-research-skill/archive/refs/heads/main.tar.gz -o deep-research.tar.gz
-
-# 解压到 skills 目录
-mkdir -p /path/to/openclaw/skills/deep-research
-tar -xzf deep-research.tar.gz -C /path/to/openclaw/skills/deep-research --strip-components=1
+export OPENAI_API_KEY="your-api-key"
 ```
 
-## 使用方法
+PowerShell:
 
-### 在 OpenClaw 中使用
-
-只需在对话中输入触发词：
-
-```
-研究一下 Rust 异步编程
-深度研究 AI Agent 框架
-帮我调研一下本地 LLM 部署方案
-分析一下 PostgreSQL vs MySQL
+```powershell
+$env:OPENAI_API_KEY = "your-api-key"
 ```
 
-Agent 会自动识别并启动研究循环。
-
-### 命令行使用
+## Usage
 
 ```bash
-# Node.js 版本
-node scripts/deep-research.js "研究主题"
-
-# Python 版本
-python3 scripts/research-loop.py "研究主题"
-
-# Shell 版本
-./scripts/run-research.sh "研究主题"
+npm run research -- "Compare PostgreSQL and MySQL for a small SaaS product"
 ```
 
-## ⚠️ 重要提醒
+The generated Markdown report is written to `reports/` by default. The command also prints the number of research rounds and the API-reported token usage.
 
-> **🚨 警告：此 Skill 会持续迭代研究，非常消耗 Token！**
-> 
-> 每轮研究都会调用搜索、分析、验证，多轮迭代累积下来 Token 消耗巨大。
-> 
-> 建议：
-> - 设置合理的 `RESEARCH_MAX_ITER`（推荐 3-5 轮）
-> - 研究前评估是否真的需要深度研究
-> - 关注 Token 用量，避免超额
+### Configuration
 
-## 与 AutoResearch 对比
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `RESEARCH_MODEL` | `gpt-5-mini` | Model used for research and synthesis |
+| `RESEARCH_MAX_ITER` | `3` | Research rounds, bounded to 1-5 |
+| `RESEARCH_MAX_TOKENS` | `2500` | Maximum output tokens per API request |
+| `RESEARCH_OUTPUT_DIR` | `reports` | Directory for generated reports |
 
-| 特性 | Karpathy's AutoResearch | Deep Research Skill |
-|------|------------------------|---------------------|
-| **目标** | ML 模型自动优化 | 通用信息深度研究 |
-| **核心循环** | 修改代码 → 训练 → 评估 | 搜索 → 分析 → 深入 |
-| **停止条件** | 性能指标收敛 | 信息饱和/质量达标 |
-| **输出** | 优化后的模型权重 | 结构化研究报告 |
-| **适用场景** | 编程/实验 | 调研/决策/学习 |
+Example:
 
-## 致谢
+```bash
+RESEARCH_MAX_ITER=2 RESEARCH_MAX_TOKENS=1500 npm run research -- "Research question"
+```
 
-- 灵感来源：[Karpathy's AutoResearch](https://github.com/karpathy/autoresearch)
-- 核心理念：让 AI 自主迭代优化
+## Testing
+
+The automated tests do not call the OpenAI API and do not require an API key.
+
+```bash
+npm test
+npm run check
+```
+
+## Evaluation plan
+
+The project will publish reproducible evaluation cases covering:
+
+- source authority and diversity;
+- citation support for important claims;
+- factual disagreements and uncertainty;
+- repeated information across rounds;
+- report completeness;
+- token use and stopping behavior.
+
+The initial engineering plan is documented in [ROADMAP.md](ROADMAP.md). Evaluation data and results will be added under `evals/` as the methodology stabilizes.
+
+## Downstream case study
+
+The broader structured-research approach is also being explored in [lian-ai](https://github.com/xxzzzzy/lian-ai), an open-source experiment based on the analysis of 333 public video transcripts. It is a separate project and is not evidence that the current research loop is already production-ready.
+
+## Responsible use
+
+- Review generated claims and sources before relying on a report.
+- Do not include private, confidential, or personal data in research prompts.
+- Use strict round and output limits to control API consumption.
+- Do not use the tool to generate deceptive citations or impersonate authoritative research.
 
 ## License
 
-MIT License - 自由使用和修改
-
----
-
-**Made with ❤️ for OpenClaw**
+MIT

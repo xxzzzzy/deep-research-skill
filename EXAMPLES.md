@@ -1,35 +1,39 @@
-# Deep Research Skill 使用示例
+# Examples
 
-## 触发方式
+These examples show intended usage. Live output varies because web content and model behavior change over time.
 
-在对话中输入：
+## Technology comparison
 
-```
-研究一下这个：Rust 异步编程最佳实践
-深度研究 AI Agent 框架对比
-帮我调研一下：本地部署 LLM 的方案
+```bash
+npm run research -- "Compare PostgreSQL and MySQL for a small SaaS product"
 ```
 
-## 实际案例
+## Framework research
 
-### 案例 1：技术选型研究
+```bash
+RESEARCH_MAX_ITER=2 npm run research -- "Compare current open-source AI agent frameworks for local tool use"
+```
 
-**User**: "研究一下：PostgreSQL vs MySQL 2024"
+## Research-history question
 
-**Agent 行为**:
-1. 搜索两者最新对比
-2. 查找性能基准测试
-3. 搜索社区使用趋势
-4. 分析适用场景
-5. 输出对比报告
+```bash
+RESEARCH_MAX_TOKENS=1800 npm run research -- "How did retrieval-augmented generation evaluation methods develop?"
+```
 
-### 案例 2：学习方法研究
+## Expected report shape
 
-**User**: "研究一下如何高效学习 Rust"
+```markdown
+# Research report title
 
-**Agent 行为**:
-1. 搜索官方学习路径
-2. 查找社区推荐资源
-3. 搜索常见学习难点
-4. 分析最佳实践
-5. 输出学习计划
+## Executive summary
+
+## Key findings
+
+## Evidence and analysis
+
+## Limitations and uncertainties
+
+## Sources
+```
+
+Before relying on a report, open the cited sources and verify that they support the associated claims.

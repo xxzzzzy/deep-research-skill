@@ -1,0 +1,19 @@
+{
+  "name": "deep-research-skill",
+  "version": "0.1.0",
+  "description": "A bounded, reproducible deep-research loop for AI agents.",
+  "license": "MIT",
+  "private": true,
+  "main": "src/research.js",
+  "scripts": {
+    "research": "node scripts/deep-research.js",
+    "test": "node --test",
+    "check": "node --check scripts/deep-research.js && node --check src/config.js && node --check src/research.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "openai": "^5.0.0"
+  }
+}

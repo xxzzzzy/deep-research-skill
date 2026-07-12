@@ -1,0 +1,26 @@
+name: Research improvement
+description: Propose an evaluation, reliability, or cost-control improvement
+title: "[Research]: "
+labels: ["enhancement", "research"]
+body:
+  - type: textarea
+    id: limitation
+    attributes:
+      label: Current limitation
+      description: What research-quality or efficiency problem should be addressed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed method
+      description: Explain the method, evidence standard, and expected tradeoffs.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe how the improvement can be tested or measured.
+    validations:
+      required: true

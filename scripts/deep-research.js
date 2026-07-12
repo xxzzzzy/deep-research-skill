@@ -1,144 +1,140 @@
 #!/usr/bin/env node
-/**
- * Deep Research Tool for OpenClaw
- * 自动迭代研究直到获得最优结果
- * 
- * 使用方法:
- * node deep-research.js "研究主题"
- */
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+const fs = require("node:fs");
+const path = require("node:path");
+const process = require("node:process");
+const OpenAI = require("openai");
+const {
+  buildResearchPrompt,
+  buildSynthesisPrompt,
+  runResearch,
+} = require("../src/research");
+const { loadConfig } = require("../src/config");
 
-// 配置
-const CONFIG = {
-  maxIterations: parseInt(process.env.RESEARCH_MAX_ITER) || 100,
-  outputDir: process.env.RESEARCH_OUTPUT_DIR || 'memory/research',
-  minFindingsPerRound: 2,
-  convergenceThreshold: 0.8
-};
-
-const log = (msg) => console.error(`[Research] ${msg}`);
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-async function search(query, iteration) {
-  log(`第 ${iteration} 轮搜索: ${query}`);
-  try {
-    const result = execSync(
-      `miaoda-studio-cli search-summary --query "${query}" --limit 5`,
-      { encoding: 'utf-8', timeout: 30000 }
-    );
-    return parseSearchResults(result);
-  } catch (e) {
-    log(`搜索工具不可用，使用模拟数据`);
-    return [{
-      title: `关于 "${query}" 的信息`,
-      content: `这是第 ${iteration} 轮搜索的模拟结果。`,
-      source: 'simulated'
-    }];
-  }
+function printUsage() {
+  console.error(
+    [
+      "Usage: npm run research -- \"your research question\"",
+      "",
+      "Required:",
+      "  OPENAI_API_KEY          OpenAI API key",
+      "",
+      "Optional:",
+      "  RESEARCH_MODEL          Model name (default: gpt-5-mini)",
+      "  RESEARCH_MAX_ITER       Research rounds, 1-5 (default: 3)",
+      "  RESEARCH_MAX_TOKENS     Maximum output tokens per request (default: 2500)",
+      "  RESEARCH_OUTPUT_DIR     Report directory (default: reports)",
+    ].join("\n"),
+  );
 }
 
-function parseSearchResults(output) {
-  const lines = output.split('\n').filter(l => l.trim());
-  return lines.slice(0, 5).map((line, i) => ({
-    title: `搜索结果 ${i + 1}`,
-    content: line,
-    source: 'web'
-  }));
-}
-
-function analyzeQuality(findings) {
-  let score = 0;
-  const content = findings.map(f => f.content).join(' ');
-  if (/\d+%|\d+个|\d+倍/.test(content)) score += 2;
-  if (findings.some(f => f.source !== 'simulated')) score += 2;
-  if (/vs|对比|区别/.test(content)) score += 1;
-  if (/步骤|流程|如何/.test(content)) score += 1;
-  if (content.length > 500) score += 1;
-  return { score, maxScore: 7 };
-}
-
-function hasConverged(current, previous) {
-  if (!previous || previous.length === 0) return false;
-  return current.map(f => f.content).join('') === previous.map(f => f.content).join('');
-}
-
-function generateNextQueries(topic, iteration) {
-  if (iteration === 1) return [`${topic} 教程`, `${topic} 入门`];
-  if (iteration === 2) return [`${topic} 最佳实践`, `${topic} 常见问题`];
-  return [`${topic} 高级技巧`, `${topic} 案例分析`];
-}
-
-function generateReport(topic, allRounds) {
-  const timestamp = new Date().toLocaleString('zh-CN');
-  const dateStr = new Date().toISOString().split('T')[0];
-  
-  let findingsSection = '';
-  allRounds.forEach((round, idx) => {
-    findingsSection += `### 第 ${idx + 1} 轮发现\n\n`;
-    round.findings.forEach((f, i) => {
-      findingsSection += `${i + 1}. **${f.title}**\n   - ${f.content.substring(0, 200)}\n\n`;
-    });
-    findingsSection += `*质量评分: ${round.quality.score}/${round.quality.maxScore}*\n\n`;
-  });
+function createOpenAIResearchClient(config) {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   return {
-    content: `# 深度研究报告：${topic}\n\n**研究时间：** ${timestamp}\n**迭代轮数：** ${allRounds.length} 轮\n\n## 核心发现\n\n${findingsSection}\n---\n*由 Deep Research Skill 自动生成*`,
-    dateStr
+    async researchRound({ topic, round, previousText }) {
+      const response = await client.responses.create({
+        model: config.model,
+        tools: [{ type: "web_search" }],
+        input: buildResearchPrompt({ topic, round, previousText }),
+        max_output_tokens: config.maxOutputTokens,
+      });
+
+      return {
+        text: response.output_text,
+        usage: response.usage || null,
+      };
+    },
+
+    async synthesize({ topic, rounds }) {
+      const response = await client.responses.create({
+        model: config.model,
+        input: buildSynthesisPrompt({ topic, rounds }),
+        max_output_tokens: config.maxOutputTokens,
+      });
+
+      return {
+        text: response.output_text,
+        usage: response.usage || null,
+      };
+    },
   };
 }
 
-function saveReport(topic, report) {
-  const outputDir = path.resolve(CONFIG.outputDir);
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-  const safeTopic = topic.replace(/[^\w\s-]/g, '').substring(0, 30).trim().replace(/\s+/g, '_');
-  const filepath = path.join(outputDir, `${safeTopic}-${report.dateStr}.md`);
-  fs.writeFileSync(filepath, report.content, 'utf-8');
-  return filepath;
+function safeFilename(topic) {
+  const normalized = topic
+    .normalize("NFKC")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 60);
+  return normalized || "research";
 }
 
-async function runResearch(topic) {
-  log(`🚀 启动深度研究: ${topic}`);
-  const allRounds = [];
-  let previousFindings = [];
-  
-  for (let i = 1; i <= CONFIG.maxIterations; i++) {
-    log(`📚 开始第 ${i} 轮研究...`);
-    const queries = i === 1 ? [topic] : generateNextQueries(topic, i);
-    const findings = await search(queries[0], i);
-    const quality = analyzeQuality(findings);
-    log(`📊 质量评分: ${quality.score}/${quality.maxScore}`);
-    
-    const converged = hasConverged(findings, previousFindings);
-    allRounds.push({ iteration: i, query: queries[0], findings, quality, converged });
-    previousFindings = findings;
-    
-    if (converged || quality.score >= 6) break;
-    if (i < CONFIG.maxIterations) await sleep(1000);
-  }
-  
-  const report = generateReport(topic, allRounds);
-  const filepath = saveReport(topic, report);
-  log(`✅ 研究完成！报告已保存: ${filepath}`);
-  return { status: 'success', topic, iterations: allRounds.length, reportPath: filepath };
+function saveReport({ topic, report, config }) {
+  fs.mkdirSync(config.outputDir, { recursive: true });
+  const date = new Date().toISOString().slice(0, 10);
+  const outputPath = path.join(
+    config.outputDir,
+    `${safeFilename(topic)}-${date}.md`,
+  );
+  fs.writeFileSync(outputPath, report, "utf8");
+  return outputPath;
 }
 
 async function main() {
-  const topic = process.argv[2] || process.env.RESEARCH_TOPIC;
+  const topic = process.argv.slice(2).join(" ").trim();
   if (!topic) {
-    console.error('❌ 请提供研究主题');
-    console.error('用法: node deep-research.js "研究主题"');
-    process.exit(1);
+    printUsage();
+    process.exitCode = 1;
+    return;
   }
-  try {
-    const result = await runResearch(topic);
-    console.log(JSON.stringify(result, null, 2));
-  } catch (err) {
-    console.error('❌ 研究失败:', err.message);
-    process.exit(1);
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY is not set.");
+    printUsage();
+    process.exitCode = 1;
+    return;
   }
+
+  const config = loadConfig(process.env);
+  const researchClient = createOpenAIResearchClient(config);
+
+  console.error(
+    `[research] Starting ${config.maxIterations} round(s) with ${config.model}`,
+  );
+
+  const result = await runResearch({
+    topic,
+    config,
+    client: researchClient,
+    onRound: ({ round }) => {
+      console.error(`[research] Completed round ${round}`);
+    },
+  });
+
+  const outputPath = saveReport({
+    topic,
+    report: result.report,
+    config,
+  });
+
+  console.log(
+    JSON.stringify(
+      {
+        status: "success",
+        topic,
+        rounds: result.rounds.length,
+        usage: result.usage,
+        reportPath: outputPath,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
-main();
+main().catch((error) => {
+  console.error(`[research] Failed: ${error.message}`);
+  process.exitCode = 1;
+});
