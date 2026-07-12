@@ -9,7 +9,7 @@ This roadmap describes intended work, not completed capabilities.
 - [x] Report API token usage.
 - [x] Add offline unit tests for orchestration and configuration.
 - [x] Publish English and Chinese documentation.
-- [ ] Publish the first tagged release.
+- [x] Publish the first tagged release.
 
 ## 0.2 - Evaluation
 
